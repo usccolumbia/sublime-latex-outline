@@ -1,6 +1,10 @@
 # sublime-latex-outline
 
-An Overleaf-style **File outline** side panel for LaTeX in Sublime Text 3/4, with figure and table previews and document totals. It is a standalone package: it works with or without [LaTeXTools](https://github.com/SublimeText/LaTeXTools) (MIT), which has a quick-panel table of contents but no persistent outline.
+An **Overleaf-style File outline** side panel for LaTeX in Sublime Text 3/4 (it behaves very much like Overleaf's outline), with figure and table previews and document totals. It is a standalone package: it works with or without [LaTeXTools](https://github.com/SublimeText/LaTeXTools) (MIT), which has a quick-panel table of contents but no persistent outline.
+
+![File outline panel next to a LaTeX manuscript: section tree with figure, table and equation rows, and totals at the bottom](docs/outline-screenshot.png)
+
+*The outline (left) next to the manuscript: sections as a foldable tree, figures and tables in milk-brown rows, equations in blue rows, and the word, section, figure, table and equation totals at the bottom. The current entry follows your cursor. It works very much like Overleaf's File outline.*
 
 ## Features
 
