@@ -88,7 +88,8 @@ def outline_view(window):
 def default_options():
     s = settings()
     legacy = bool(s.get("show_floats", False))
-    return {"figures": bool(s.get("show_figures", True)) or legacy, "tables": bool(s.get("show_tables", True)) or legacy, "todos": bool(s.get("show_todos", False))}
+    return {"figures": bool(s.get("show_figures", True)) or legacy, "tables": bool(s.get("show_tables", True)) or legacy, "todos": bool(s.get("show_todos", False)),
+            "equations": bool(s.get("show_equations", True))}
 
 
 def compute_rows(window, src):
@@ -98,13 +99,16 @@ def compute_rows(window, src):
     text = src.substr(sublime.Region(0, src.size()))
     path = src.file_name() or ""
     resolver = resolver_for(path) if (s.get("follow_inputs", False) and path) else None
-    entries = parse_outline(text, path, figures=opts["figures"], tables=opts["tables"], todos=opts["todos"], resolver=resolver)
+    entries = parse_outline(text, path, figures=opts["figures"], tables=opts["tables"], todos=opts["todos"], resolver=resolver,
+                            equations=opts["equations"], unnumbered=bool(s.get("show_unnumbered_equations", False)))
     markers = (str(s.get("expanded_marker", "⌄ "))[:2].ljust(2), str(s.get("collapsed_marker", "› "))[:2].ljust(2))
     return entries, build_rows(entries, st["collapsed"], markers)
 
 
 FLOAT_SCOPE = "meta.latex-outline.float"
 FLOAT_CURRENT_SCOPE = "meta.latex-outline.float.current"
+EQ_SCOPE = "meta.latex-outline.equation"
+EQ_CURRENT_SCOPE = "meta.latex-outline.equation.current"
 SCHEME_FILE = "LaTeXOutline-floats.sublime-color-scheme"
 
 
@@ -122,7 +126,9 @@ def ensure_scheme(ov, src):
         base = found[0] if found else None
     fg = str(s.get("float_foreground", "#4A3728"))
     rules = [{"scope": FLOAT_SCOPE, "background": bg, "foreground": fg},
-             {"scope": FLOAT_CURRENT_SCOPE, "background": str(s.get("float_current_background", "#C9AE86")), "foreground": "#2E1F12"}]
+             {"scope": FLOAT_CURRENT_SCOPE, "background": str(s.get("float_current_background", "#C9AE86")), "foreground": "#2E1F12"},
+             {"scope": EQ_SCOPE, "background": str(s.get("equation_background", "#DCE4F0")), "foreground": str(s.get("equation_foreground", "#2B3A55"))},
+             {"scope": EQ_CURRENT_SCOPE, "background": str(s.get("equation_current_background", "#B8C7E0")), "foreground": "#16213A"}]
     body = {"extends": base, "rules": rules} if base else {"rules": rules}
     path = os.path.join(sublime.packages_path(), "User", SCHEME_FILE)
     text = json.dumps(body, indent=2)
@@ -142,14 +148,16 @@ def ensure_scheme(ov, src):
 
 
 def draw_floats(ov, rows):
-    regions = []
+    """Colour the figure/table rows (milk brown) and the equation rows (pale blue)."""
+    groups = {"float": [], "eq": []}
     for i, r in enumerate(rows):
-        if r.entry.kind in ("figure", "table"):
-            p = ov.text_point(i, 0)
-            line = ov.line(p)
-            regions.append(sublime.Region(line.begin(), min(line.end() + 1, ov.size())))
-    ov.add_regions("outline_floats", regions, FLOAT_SCOPE, flags=sublime.DRAW_NO_OUTLINE)
-    return len(regions)
+        k = "float" if r.entry.kind in ("figure", "table") else "eq" if r.entry.kind == "equation" else None
+        if k:
+            line = ov.line(ov.text_point(i, 0))
+            groups[k].append(sublime.Region(line.begin(), min(line.end() + 1, ov.size())))
+    ov.add_regions("outline_floats", groups["float"], FLOAT_SCOPE, flags=sublime.DRAW_NO_OUTLINE)
+    ov.add_regions("outline_equations", groups["eq"], EQ_SCOPE, flags=sublime.DRAW_NO_OUTLINE)
+    return len(groups["float"]) + len(groups["eq"])
 
 
 @guarded
@@ -169,14 +177,15 @@ def render(window, src=None):
     stats = None
     if s.get("show_stats", True) or s.get("stats_in_status_bar", True):
         stats = document_stats(src.substr(sublime.Region(0, src.size())), bool(s.get("stats_exclude_abstract", False)))
-        short = "Words %s | Sections %d | Figures %d | Tables %d" % (format(stats["words"], ","), stats["sections"], stats["figures"], stats["tables"])
+        short = "Words %s | Sections %d | Figures %d | Tables %d | Equations %d" % (format(stats["words"], ","), stats["sections"], stats["figures"], stats["tables"], stats["equations"])
         log("STATS " + short)
         if s.get("stats_in_status_bar", True):
             src.set_status("latex_outline_stats", short)
             ov.set_status("latex_outline_stats", short)
         if s.get("show_stats", True):
-            left = ["Words %s" % format(stats["words"], ","), "Sections %d (+%d)" % (stats["sections"], stats["subsections"])]
+            left = ["Words %s" % format(stats["words"], ","), "Sections %d (+%d)" % (stats["sections"], stats["subsections"]), "Equations %d" % stats["equations"]]
             right = ["Figures %d" % stats["figures"], "Tables %d" % stats["tables"]]
+            right += [""] * (len(left) - len(right))
             pad = max(len(x) for x in left) + 3
             body += "\n\n" + "-" * (pad + max(len(x) for x in right)) + "\n" + "\n".join(l.ljust(pad) + r for l, r in zip(left, right))
     ov.run_command("latex_outline_set_text", {"text": body})
@@ -207,7 +216,9 @@ def highlight(window, src):
         ov.erase_regions("current")
         return
     region = ov.line(ov.text_point(idx, 0))
-    scope = FLOAT_CURRENT_SCOPE if st["rows"][idx].entry.kind in ("figure", "table") and settings().get("float_background", "#E9DCC9") else "region.bluish"
+    kind = st["rows"][idx].entry.kind
+    scope = FLOAT_CURRENT_SCOPE if kind in ("figure", "table") and settings().get("float_background", "#E9DCC9") else \
+        EQ_CURRENT_SCOPE if kind == "equation" and settings().get("equation_background", "#DCE4F0") else "region.bluish"
     ov.add_regions("current", [region], scope, flags=sublime.DRAW_NO_OUTLINE)
     log("HIGHLIGHT cursor_row=%d -> outline_row=%d %r" % (row, idx, st["rows"][idx].text))
     ov.show(region, False)
@@ -301,7 +312,7 @@ def show_preview(window, row, point=None):
     if not st or not ov or row >= len(st["rows"]):
         return False
     entry = st["rows"][row].entry
-    if entry.kind not in ("figure", "table") or not settings().get("hover_preview", True):
+    if entry.kind not in ("figure", "table", "equation") or not settings().get("hover_preview", True):
         return False
     st["last_row"] = row
     pkey = (entry.path, entry.line)

@@ -39,10 +39,16 @@ def popup_html(entry, images=(), note=""):
     """images: list of (data_uri, label) already prepared; note: extra line such as 'rendering preview...'."""
     d = entry.data or {}
     title = html.escape(entry.title.split(":", 1)[0])
-    cap = html.escape(d.get("caption") or entry.title.split(":", 1)[-1].strip())
+    cap = "" if entry.kind == "equation" else html.escape(d.get("caption") or entry.title.split(":", 1)[-1].strip())
     body = ['<body id="outline-preview" style="padding:4px"><b>%s</b><br>%s' % (title, cap)]
     for uri, label in images:
         body.append('<br><br><img src="%s">%s' % (uri, ("<br><i>%s</i>" % html.escape(label)) if label else ""))
+    if entry.kind == "equation":
+        src = (d.get("source") or "").strip()
+        if len(src) > 700:
+            src = src[:700] + " …"
+        lab = ("<br><i>label: %s</i>" % html.escape(d["label"])) if d.get("label") else ""
+        body.append("%s<br><br><pre style=\"font-size:0.85em\">%s</pre>" % (lab, html.escape(src)))
     if entry.kind == "table":
         txt = table_text(d.get("rows") or [])
         body.append("<br><br><pre style=\"font-size:0.85em\">%s</pre>" % html.escape(txt) if txt else "<br><i>(no table body found)</i>")

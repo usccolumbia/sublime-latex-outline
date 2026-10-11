@@ -18,6 +18,13 @@
         }
     },
     {
+        "caption": "LaTeX Outline: Show/Hide Equations",
+        "command": "latex_outline_toggle_option",
+        "args": {
+            "option": "equations"
+        }
+    },
+    {
         "caption": "LaTeX Outline: Show/Hide TODO Markers",
         "command": "latex_outline_toggle_option",
         "args": {

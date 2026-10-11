@@ -5,6 +5,10 @@
     // (switch them at run time with "LaTeX Outline: Show/Hide Figures / Tables / TODO Markers")
     "show_figures": true,
     "show_tables": true,
+    // list numbered display equations ("Eq. 3: E = mc^2"; align/gather rows get one number each) with a pale-blue background;
+    // "show_unnumbered_equations" also lists starred environments, \[ \] and $$ $$
+    "show_equations": true,
+    "show_unnumbered_equations": false,
     // list \TODO{...} markers
     "show_todos": false,
     // totals at the bottom of the outline and in the status bar: words (main text: no math, floats, captions, bibliography),
@@ -16,6 +20,9 @@
     "hover_preview": true,
     "preview_max_images": 3,
     "preview_max_height": 520,
+    "equation_background": "#DCE4F0",
+    "equation_foreground": "#2B3A55",
+    "equation_current_background": "#B8C7E0",
     // program used to open the full image ("" = system default: open / xdg-open / startfile)
     "image_viewer": "",
     // background and text color of the figure and table rows (light milk brown); "" turns the colouring off

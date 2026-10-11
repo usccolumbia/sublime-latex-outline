@@ -68,6 +68,41 @@ class Parser(unittest.TestCase):
         self.assertEqual([x.title for x in e], ["One", "From B", "Two"])   # c.tex -> a.tex is a cycle and is skipped
 
 
+class Equations(unittest.TestCase):
+    SRC = r"""\section{A}
+\begin{equation}\label{eq:one} E = mc^2 \end{equation}
+\begin{align} a &= b \\ c &= d \nonumber \\ e &= f \label{x}\end{align}
+\begin{equation*} unnum \end{equation*}
+\[ x^2 \]
+\begin{equation} y = 1 \tag{A1}\end{equation}
+\begin{gather} p \\ q \end{gather}
+"""
+
+    def test_numbering(self):
+        e = [x for x in parse_outline(self.SRC, "a.tex", equations=True) if x.kind == "equation"]
+        self.assertEqual([x.title for x in e], ["Eq. 1: E = mc^2", "Eq. 2–3: a = b …", "Eq. (A1): y = 1", "Eq. 4–5: p …"])
+        self.assertEqual(e[0].data["label"], "eq:one")
+        self.assertEqual(e[1].data["count"], 2)
+
+    def test_unnumbered_optional(self):
+        e = [x.title for x in parse_outline(self.SRC, "a.tex", equations=True, unnumbered=True) if x.kind == "equation"]
+        self.assertIn("Eq. unnumbered: unnum", e)
+        self.assertIn("Eq. unnumbered: x^2", e)
+        self.assertEqual(len(e), 6)
+
+    def test_stats_and_popup(self):
+        from outline_parser import document_stats
+        from preview_model import popup_html
+        self.assertEqual(document_stats(self.SRC)["equations"], 5)
+        e = next(x for x in parse_outline(self.SRC, "a.tex", equations=True) if x.kind == "equation")
+        h = popup_html(e)
+        self.assertIn("eq:one", h)
+        self.assertIn("E = mc^2", h)
+
+    def test_hidden_by_default(self):
+        self.assertFalse(any(x.kind == "equation" for x in parse_outline(self.SRC, "a.tex")))
+
+
 class Stats(unittest.TestCase):
     def test_word_count(self):
         from outline_parser import count_words, document_stats

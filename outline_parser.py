@@ -89,7 +89,7 @@ def line_of(starts, pos):
     return lo
 
 
-def parse_outline(text, path="", figures=False, tables=False, todos=False, resolver=None, _seen=None, floats=None):
+def parse_outline(text, path="", figures=False, tables=False, todos=False, resolver=None, _seen=None, floats=None, equations=False, unnumbered=False):
     """resolver(name, from_path) -> (resolved_path, text) or None; enables \\input recursion. floats=True is shorthand for figures+tables."""
     if floats is not None:
         figures = tables = bool(floats)
@@ -136,6 +136,9 @@ def parse_outline(text, path="", figures=False, tables=False, todos=False, resol
             else:
                 data = dict(rows=parse_tabular(seg_main), caption=full_caption)
             items.append((pos, Entry(kind, 99, 99, title[:90], path, line_of(starts, pos), data)))
+    if equations:
+        for pos, ent in find_equations(masked, starts, path, unnumbered):
+            items.append((pos, ent))
     if todos:
         for tm in TODO_RE.finditer(masked):
             body, _ = read_group(masked, tm.end() - 1)
@@ -154,7 +157,7 @@ def parse_outline(text, path="", figures=False, tables=False, todos=False, resol
             got = resolver(name, path)
             if not got or got[0] in seen:
                 continue
-            sub = parse_outline(got[1], got[0], figures, tables, todos, resolver, seen)
+            sub = parse_outline(got[1], got[0], figures, tables, todos, resolver, seen, None, equations, unnumbered)
             merged.append((p, sub))
         if merged:
             result, mi = [], 0
@@ -166,10 +169,23 @@ def parse_outline(text, path="", figures=False, tables=False, todos=False, resol
             while mi < len(merged):
                 result.extend(merged[mi][1]); mi += 1
             entries = result
-    if top:   # number figures and tables in document order, across \\input files
-        nf = nt = 0
+    if top:   # number figures, tables and equations in document order, across \\input files
+        nf = nt = ne = 0
         out = []
         for e in entries:
+            if e.kind == "equation":
+                d = dict(e.data or {})
+                n = d.get("count", 0)
+                if d.get("tag"):
+                    label = "(%s)" % d["tag"]
+                elif n:
+                    label = "%d" % (ne + 1) if n == 1 else "%d\u2013%d" % (ne + 1, ne + n)
+                    ne += n
+                else:
+                    label = "unnumbered"
+                d["number"] = label
+                out.append(e._replace(title="Eq. %s: %s" % (label, e.title), data=d))
+                continue
             if e.kind == "figure":
                 nf += 1; e = e._replace(title="Fig. %d: %s" % (nf, e.title))
             elif e.kind == "table":
@@ -283,7 +299,69 @@ def count_words(text, exclude_abstract=False):
 
 
 def document_stats(text, exclude_abstract=False):
-    e = parse_outline(text, "", figures=True, tables=True)
+    e = parse_outline(text, "", figures=True, tables=True, equations=True)
     count = lambda k: sum(1 for x in e if x.kind == k)
     return dict(words=count_words(text, exclude_abstract), sections=count("section"), subsections=count("subsection"),
-                figures=count("figure"), tables=count("table"))
+                figures=count("figure"), tables=count("table"), equations=sum((x.data or {}).get("count", 0) for x in e if x.kind == "equation"))
+
+
+EQ_ENV_RE = re.compile(r"\\begin\{(equation|align|alignat|gather|multline|eqnarray|flalign|displaymath)(\*?)\}")
+ROW_ENVS = ("align", "alignat", "gather", "eqnarray", "flalign")
+
+
+def equation_snippet(body):
+    s = re.sub(r"\\(?:label|tag)\*?\s*\{[^{}]*\}", " ", body)
+    s = re.sub(r"\\(?:nonumber|notag)\b", " ", s)
+    s = re.sub(r"\\(?:begin|end)\s*\{[^{}]*\}(?:\{[^{}]*\})?", " ", s)
+    first = [r for r in split_top(s, "\\\\") if r.strip()]
+    one = first[0] if first else s
+    one = re.sub(r"(?<!\\)&", " ", one)
+    one = re.sub(r"\s+", " ", one).strip()
+    more = len(first) > 1
+    one = one[:70] + ("\u2026" if len(one) > 70 else "")
+    return one + (" \u2026" if more else "") if one else "(empty)"
+
+
+def equation_entry(kind_env, starred, body, pos, starts, path, unnumbered, display_only=False):
+    label = re.search(r"\\label\s*\{([^{}]*)\}", body)
+    tag = re.search(r"\\tag\*?\s*\{([^{}]*)\}", body)
+    rows = [r for r in split_top(body, "\\\\") if r.strip()]
+    if display_only or starred:
+        count = 0
+    elif kind_env in ROW_ENVS:
+        count = sum(1 for r in rows if not re.search(r"\\(?:nonumber|notag|tag)\b", r))
+    else:
+        count = 0 if re.search(r"\\(?:nonumber|notag)\b", body) else 1
+    if tag and not display_only:
+        count = 0
+    if count == 0 and not tag and not unnumbered:
+        return None
+    src = re.sub(r"[ \t]+", " ", body.strip())
+    data = dict(count=count, tag=tag.group(1) if tag else None, label=label.group(1) if label else None, source=src, env=kind_env + ("*" if starred else ""))
+    return Entry("equation", 99, 99, equation_snippet(body), path, line_of(starts, pos), data)
+
+
+def find_equations(masked, starts, path, unnumbered=False):
+    """(position, Entry) for numbered display equations (and, with unnumbered=True, unnumbered ones: starred environments, \\[ \\], $$ $$)."""
+    out = []
+    for m in EQ_ENV_RE.finditer(masked):
+        env, star = m.group(1), m.group(2)
+        end = masked.find("\\end{%s%s}" % (env, star), m.end())
+        if end < 0:
+            continue
+        body = masked[m.end(): end]
+        if env in ("alignat", "flalign") or env == "alignat":
+            body = re.sub(r"^\s*\{\d+\}", "", body)
+        ent = equation_entry(env, bool(star) or env == "displaymath", body, m.start(), starts, path, unnumbered)
+        if ent is not None:
+            out.append((m.start(), ent))
+    if unnumbered:
+        for m in re.finditer(r"\\\[(.*?)\\\]", masked, flags=re.S):
+            ent = equation_entry("\\[", True, m.group(1), m.start(), starts, path, True, True)
+            if ent is not None:
+                out.append((m.start(), ent))
+        for m in re.finditer(r"\$\$(.*?)\$\$", masked, flags=re.S):
+            ent = equation_entry("$$", True, m.group(1), m.start(), starts, path, True, True)
+            if ent is not None:
+                out.append((m.start(), ent))
+    return out

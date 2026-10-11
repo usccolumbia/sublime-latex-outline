@@ -7,9 +7,10 @@ An Overleaf-style **File outline** side panel for LaTeX in Sublime Text 3/4, wit
 - **Outline tree** of `\part`, `\chapter`, `\section`, `\subsection`, `\subsubsection`, `\paragraph` and `\subparagraph` in a narrow left pane. Comments, verbatim blocks and `\iffalse` text are ignored; titles are cleaned (`\textbf`, `\label`, `\texorpdfstring`, `~`).
 - **Navigation:** click an entry or press Enter to jump to it; click the `⌄`/`›` chevron or press Space to fold or unfold a branch. The entry of the section you are editing is highlighted, and the outline refreshes as you type and when you switch `.tex` tabs.
 - **Figures and tables** are listed under their section, numbered in document order (`Fig. 1: caption`, `Table 2: caption`; `figure*`/`table*` included, sub-figures ignored; no caption falls back to the image file name or label) on a light milk-brown background.
+- **Equations:** numbered display equations are listed like figures, on a pale-blue background: `Eq. 1: E = mc^2`. `equation`, `align`, `alignat`, `flalign`, `gather`, `multline` and `eqnarray` are recognised; `align`/`gather` rows get one number each (so `Eq. 2–3` for two numbered rows; `\nonumber`/`\notag` rows are skipped), `\tag{A1}` shows as `Eq. (A1)`. `show_unnumbered_equations` also lists starred environments, `\[ \]` and `$$ $$`. Hover shows the label and the LaTeX source; click jumps to it.
 - **Hover preview:** point at a figure row for its caption and an image thumbnail (PNG/JPG, and PDF/EPS rendered with macOS `sips`; up to three images per figure, found relative to the file and `\graphicspath`), or at a table row for its caption and a text grid of its cells (`\makecell`, `\multicolumn` and rules handled).
 - **Open the full image:** press `Cmd+Alt+P` (`Ctrl+Alt+P` elsewhere; P for picture) to open the figure you last hovered or clicked (else the figure the cursor is in) in the system viewer, or click **Open full image** in the popup. `o` / `Shift+Enter` do the same while the outline pane itself has focus.
-- **Totals:** words, sections (and subsections), figures and tables at the bottom of the outline and in the status bar (`Words 7,137 | Sections 10 | Figures 5 | Tables 6`). Words are the main text as a journal limit counts it: section titles and footnotes included, numbers count; math, figures/tables with their captions, the bibliography, citations/references and the preamble are left out. It agrees with `texcount` to within a few percent.
+- **Totals:** words, sections (and subsections), figures, tables and equations at the bottom of the outline and in the status bar (`Words 7,137 | Sections 10 | Figures 5 | Tables 6 | Equations 2`). Words are the main text as a journal limit counts it: section titles and footnotes included, numbers count; math, figures/tables with their captions, the bibliography, citations/references and the preamble are left out. It agrees with `texcount` to within a few percent.
 - Optional: `\TODO{...}` markers, and following `\input`/`\include`/`\subfile` into other files.
 
 ## Install
@@ -30,17 +31,18 @@ Open a `.tex` file and run **LaTeX Outline: Toggle** from the Command Palette, o
 | `Cmd+Alt+O` / `Ctrl+Alt+O` | LaTeX Outline: Toggle |
 | `Cmd+Alt+F` / `Ctrl+Alt+F` | Show/Hide Figures |
 | `Cmd+Alt+T` / `Ctrl+Alt+T` | Show/Hide Tables |
+| `Cmd+Alt+M` / `Ctrl+Alt+M` | Show/Hide Equations |
 | `Cmd+Alt+P` / `Ctrl+Alt+P` | Open Figure Image |
 | Enter / Space (outline focused) | jump / fold |
 | `o` / `Shift+Enter` (outline focused) | open figure image |
 
-`Cmd+Alt+P` replaces Sublime's default binding to Show Scope Name while this package is installed.
+`Cmd+Alt+P` replaces Sublime's default binding to Show Scope Name, and `Cmd+Alt+F` its default Replace binding, while this package is installed.
 
 ## Settings (`LaTeXOutline.sublime-settings`)
 
-`width`, `show_figures`, `show_tables`, `show_todos`, `follow_inputs`, `refresh_delay_ms`, `expanded_marker` / `collapsed_marker` (2 characters; use `"- "`/`"+ "` if your font lacks the chevrons), `float_background`, `float_foreground`, `float_current_background` (colours of figure/table rows; `float_background: ""` turns them off), `hover_preview`, `preview_max_images`, `preview_max_height`, `image_viewer`, `show_stats`, `stats_in_status_bar`, `stats_exclude_abstract`, `debug_log`.
+`width`, `show_figures`, `show_tables`, `show_equations`, `show_unnumbered_equations`, `show_todos`, `follow_inputs`, `refresh_delay_ms`, `expanded_marker` / `collapsed_marker` (2 characters; use `"- "`/`"+ "` if your font lacks the chevrons), `float_background`, `float_foreground`, `float_current_background` (colours of figure/table rows; `float_background: ""` turns them off), `equation_background`, `equation_foreground`, `equation_current_background`, `hover_preview`, `preview_max_images`, `preview_max_height`, `image_viewer`, `show_stats`, `stats_in_status_bar`, `stats_exclude_abstract`, `debug_log`.
 
-The package writes `Packages/User/LaTeXOutline-floats.sublime-color-scheme`, which extends your current color scheme, to colour the figure and table rows.
+The package writes `Packages/User/LaTeXOutline-floats.sublime-color-scheme`, which extends your current color scheme, to colour the figure, table and equation rows.
 
 ## Status
 
