@@ -19,8 +19,8 @@ import sublime
 import sublime_plugin
 
 from .outline_model import build_rows, current_row, marker_width, key
-from .outline_parser import parse_outline, document_stats
-from .preview_model import popup_html, resolve_image, RASTER
+from .outline_parser import parse_outline, document_stats, extract_macros, extract_packages
+from .preview_model import popup_html, resolve_image, RASTER, equation_tex, png_size
 
 OUTLINE_NAME = "File outline"
 STATE = {}  # window id -> dict(view=outline view id, src=source view id, rows=[Row], collapsed=set(), layout=original layout)
@@ -172,6 +172,9 @@ def render(window, src=None):
     st["src"] = src.id()
     entries, rows = compute_rows(window, src)
     st["entries"], st["rows"] = entries, rows
+    if opts_equations_render():
+        text_all = src.substr(sublime.Region(0, src.size()))
+        st["preamble"] = (extract_macros(text_all), extract_packages(text_all))
     body = "\n".join(r.text for r in rows) if rows else "  (no sections found)"
     s = settings()
     stats = None
@@ -305,6 +308,60 @@ def open_entry_images(window, row):
     return len(found)
 
 
+def opts_equations_render():
+    return bool(settings().get("equation_render", True))
+
+
+TEX_DIRS = ("/Library/TeX/texbin", "/usr/local/bin", "/opt/homebrew/bin", "/usr/texbin", "/usr/bin", "/bin")
+
+
+def tex_env():
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join(list(TEX_DIRS) + [env.get("PATH", "")])
+    return env
+
+
+def render_equation(tex, dpi=200, timeout=30):
+    """Typeset a standalone LaTeX document to a PNG with latex + dvipng (or pdflatex + pdftoppm). Returns (png path, "") or (None, reason)."""
+    key = hashlib.sha1((tex + "|%d" % dpi).encode()).hexdigest()
+    out = os.path.join(thumb_dir(), "eq-" + key + ".png")
+    if os.path.exists(out):
+        return out, ""
+    work = os.path.join(thumb_dir(), "tmp-" + key)
+    os.makedirs(work, exist_ok=True)
+    env = tex_env()
+    try:
+        with open(os.path.join(work, "eq.tex"), "w") as fh:
+            fh.write(tex)
+        if shutil.which("latex", path=env["PATH"]) and shutil.which("dvipng", path=env["PATH"]):
+            cmds = [["latex", "-interaction=nonstopmode", "-halt-on-error", "-no-shell-escape", "eq.tex"],
+                    ["dvipng", "-D", str(dpi), "-T", "tight", "-bg", "White", "-fg", "Black", "-o", "eq.png", "eq.dvi"]]
+        elif shutil.which("pdflatex", path=env["PATH"]) and shutil.which("pdftoppm", path=env["PATH"]):
+            cmds = [["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "-no-shell-escape", "eq.tex"],
+                    ["pdftoppm", "-r", str(dpi), "-png", "-singlefile", "eq.pdf", "eq"]]
+        else:
+            return None, "no LaTeX found (install TeX Live or MacTeX: latex + dvipng)"
+        for cmd in cmds:
+            r = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=timeout)
+            if r.returncode != 0:
+                msg = ""
+                logp = os.path.join(work, "eq.log")
+                if os.path.exists(logp):
+                    lines = open(logp, errors="replace").read().splitlines()
+                    bad = [i for i, l in enumerate(lines) if l.startswith("!")]
+                    if bad:
+                        msg = " ".join(x.strip() for x in lines[bad[0]: bad[0] + 2])[:160]
+                return None, msg or "LaTeX failed"
+        shutil.copyfile(os.path.join(work, "eq.png"), out)
+        return out, ""
+    except subprocess.TimeoutExpired:
+        return None, "LaTeX timed out"
+    except Exception as e:
+        return None, "%s: %s" % (type(e).__name__, e)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 @guarded
 def show_preview(window, row, point=None):
     st = STATE.get(window.id())
@@ -333,7 +390,7 @@ def show_preview(window, row, point=None):
     pending = [(n, p) for n, p in files if p]
 
     def popup(note_text, imgs):
-        html_ = popup_html(entry, [(u, l) for u, l in imgs], note_text).replace('<img src=', '<img width="%d" src=' % (width - 16))
+        html_ = popup_html(entry, imgs, note_text)
         if any(p for _, p in files):
             html_ = html_.replace('</body>', '<br><a href="open">Open full image</a></body>')
         if ov.is_popup_visible() and st.get("preview_token") == token:
@@ -342,14 +399,36 @@ def show_preview(window, row, point=None):
             ov.show_popup(html_, flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY, location=point, on_hide=lambda: st.pop("preview_key", None), on_navigate=lambda href: open_entry_images(window, row) if href == "open" else None, max_width=width, max_height=int(settings().get("preview_max_height", 520)))
         log("PREVIEW row=%d kind=%s images=%d note=%r html=%d chars" % (row, entry.kind, len(imgs), note_text, len(html_)))
 
-    popup(note or ("rendering preview…" if pending else ""), [])
+    eq_job = None
+    if entry.kind == "equation" and opts_equations_render() and st.get("preamble"):
+        macros, packages = st["preamble"]
+        tex = equation_tex(entry, macros, packages, int(settings().get("equation_width_pt", 420)))
+        if tex:
+            eq_job = tex
+    popup(note or ("rendering preview…" if (pending or eq_job) else ""), [])
+    if eq_job:
+        def work_eq():
+            png, err = render_equation(eq_job, int(settings().get("equation_dpi", 200)), int(settings().get("latex_timeout", 30)))
+            imgs, nt = [], ""
+            if png:
+                with open(png, "rb") as fh:
+                    uri = "data:image/png;base64," + base64.b64encode(fh.read()).decode("ascii")
+                size = png_size(png)
+                w = min(width - 16, int(size[0] * 0.55)) if size else width - 16
+                imgs.append((uri, "", w))
+            else:
+                nt = "could not typeset: " + err
+                log("EQRENDER failed: " + err)
+            if st.get("preview_token") == token:
+                sublime.set_timeout(lambda: popup(nt, imgs), 0)
+        threading.Thread(target=work_eq, daemon=True).start()
     if pending:
         def work():
             imgs, nt = [], note
             for name, p in pending:
                 uri = make_thumbnail(p)
                 if uri:
-                    imgs.append((uri, os.path.basename(p)))
+                    imgs.append((uri, os.path.basename(p), width - 16))
                 else:
                     nt = "could not render %s" % os.path.basename(p)
             if st.get("preview_token") == token:

@@ -20,6 +20,11 @@
     "hover_preview": true,
     "preview_max_images": 3,
     "preview_max_height": 520,
+    // hover over an equation: typeset it with your LaTeX (latex + dvipng, or pdflatex + pdftoppm) using the macros it needs
+    "equation_render": true,
+    "equation_dpi": 200,
+    "equation_width_pt": 420,
+    "latex_timeout": 30,
     "equation_background": "#DCE4F0",
     "equation_foreground": "#2B3A55",
     "equation_current_background": "#B8C7E0",

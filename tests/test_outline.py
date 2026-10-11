@@ -103,6 +103,49 @@ class Equations(unittest.TestCase):
         self.assertFalse(any(x.kind == "equation" for x in parse_outline(self.SRC, "a.tex")))
 
 
+class EquationRender(unittest.TestCase):
+    SRC = r"""\documentclass{article}\usepackage{amsmath}\usepackage{tikz}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Rn}[1]{\R^{#1}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\TODO}[1]{\textcolor{red}{#1}}
+\begin{document}
+\begin{equation}\label{e} \hat x = \argmin_{x \in \Rn{3}} \|Ax-b\|^2 \end{equation}
+\end{document}"""
+
+    def test_tex_document(self):
+        from outline_parser import extract_macros, extract_packages
+        from preview_model import equation_tex
+        macros = extract_macros(self.SRC)
+        self.assertEqual(sorted(macros), ["R", "Rn", "TODO", "argmin"])
+        e = next(x for x in parse_outline(self.SRC, "a.tex", equations=True) if x.kind == "equation")
+        tex = equation_tex(e, macros, extract_packages(self.SRC))
+        self.assertIn("\\newcommand{\\Rn}[1]{\\R^{#1}}", tex)      # used macro and the one it depends on
+        self.assertIn("\\newcommand{\\R}{\\mathbb{R}}", tex)
+        self.assertIn("\\DeclareMathOperator*{\\argmin}", tex)
+        self.assertNotIn("TODO", tex)                                # unused macros (here one needing xcolor) are left out
+        self.assertNotIn("\\label", tex)
+        self.assertIn("\\tag{1}", tex)
+        self.assertNotIn("tikz", tex)                                # only math packages are copied
+        self.assertTrue(tex.rstrip().endswith("\\end{document}"))
+
+    def test_compiles_when_latex_is_installed(self):
+        import shutil, subprocess, tempfile
+        from outline_parser import extract_macros, extract_packages
+        from preview_model import equation_tex
+        env_path = "/Library/TeX/texbin:/usr/local/bin:/usr/bin:/bin:" + os.environ.get("PATH", "")
+        if not (shutil.which("latex", path=env_path) and shutil.which("dvipng", path=env_path)):
+            self.skipTest("latex/dvipng not installed")
+        e = next(x for x in parse_outline(self.SRC, "a.tex", equations=True) if x.kind == "equation")
+        tex = equation_tex(e, extract_macros(self.SRC), extract_packages(self.SRC))
+        d = tempfile.mkdtemp()
+        open(d + "/eq.tex", "w").write(tex)
+        env = dict(os.environ, PATH=env_path)
+        self.assertEqual(subprocess.run(["latex", "-interaction=nonstopmode", "-halt-on-error", "eq.tex"], cwd=d, env=env, capture_output=True).returncode, 0)
+        self.assertEqual(subprocess.run(["dvipng", "-D", "100", "-T", "tight", "-o", "eq.png", "eq.dvi"], cwd=d, env=env, capture_output=True).returncode, 0)
+        self.assertTrue(os.path.getsize(d + "/eq.png") > 500)
+
+
 class Stats(unittest.TestCase):
     def test_word_count(self):
         from outline_parser import count_words, document_stats

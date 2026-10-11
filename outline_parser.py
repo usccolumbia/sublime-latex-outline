@@ -365,3 +365,85 @@ def find_equations(masked, starts, path, unnumbered=False):
             if ent is not None:
                 out.append((m.start(), ent))
     return out
+
+
+MACRO_RE = re.compile(r"\\(newcommand|renewcommand|providecommand|DeclareRobustCommand|DeclareMathOperator|def|let)(\*?)\s*")
+PKG_WHITELIST = ("amsmath", "amssymb", "amsfonts", "amsthm", "mathtools", "bm", "braket", "physics", "siunitx", "upgreek", "mathrsfs", "dsfont", "nicefrac",
+                 "cancel", "xcolor", "mathdots", "stmaryrd", "yhmath", "txfonts", "newtxmath", "mathrsfs", "bbm", "isomath", "empheq", "cases", "esint")
+
+
+def extract_macros(text):
+    """Macro definitions of the document (name -> (kind, full definition text)), \\newcommand / \\renewcommand / \\providecommand /
+    \\DeclareMathOperator / \\def; used to typeset equations that rely on the author's own macros."""
+    masked = mask_comments(text)
+    out = {}
+    for m in MACRO_RE.finditer(masked):
+        kind = m.group(1)
+        pos = m.end()
+        name = None
+        if kind == "def" or kind == "let":
+            nm = re.match(r"\\([a-zA-Z@]+)", masked[pos:])
+            if not nm:
+                continue
+            name = nm.group(1)
+            q = pos + nm.end()
+            if kind == "let":
+                continue   # \let is rarely math-relevant and often points at package internals
+            j = masked.find("{", q)
+            if j < 0 or "\n\n" in masked[q:j]:
+                continue
+            _, end = read_group(masked, j)
+            if end == j:
+                continue
+        else:
+            if pos < len(masked) and masked[pos] == "{":
+                g, q = read_group(masked, pos)
+                nm = re.match(r"\s*\\([a-zA-Z@]+)\s*$", g or "")
+                if not nm:
+                    continue
+                name = nm.group(1)
+            else:
+                nm = re.match(r"\\([a-zA-Z@]+)", masked[pos:])
+                if not nm:
+                    continue
+                name = nm.group(1)
+                q = pos + nm.end()
+            ngroups = 1   # the name is already consumed; one body group follows (after optional [n] and [default])
+            end = q
+            for _ in range(ngroups):
+                while end < len(masked) and masked[end] in " \n\t":
+                    end += 1
+                while masked.startswith("[", end):          # [nargs] and [default]
+                    end = masked.find("]", end) + 1
+                if end <= 0 or end >= len(masked) or masked[end] != "{":
+                    end = -1
+                    break
+                _, end = read_group(masked, end)
+            if end < 0:
+                continue
+        out[name] = (kind, masked[m.start(): end])
+    return out
+
+
+def extract_packages(text):
+    """Math-related \\usepackage lines of the preamble (whitelist), as 'pkg' or 'opts|pkg' tuples."""
+    masked = mask_comments(text)
+    pre = masked.split("\\begin{document}")[0]
+    out = []
+    for m in re.finditer(r"\\usepackage\s*(?:\[([^\]]*)\])?\s*\{([^{}]*)\}", pre):
+        for pkg in [x.strip() for x in m.group(2).split(",")]:
+            if pkg in PKG_WHITELIST:
+                out.append((m.group(1) or "", pkg))
+    return out
+
+
+def macro_closure(body, macros):
+    """Names of the macros used by `body`, directly or through other macros."""
+    need, todo = set(), [body]
+    while todo:
+        s = todo.pop()
+        for name in re.findall(r"\\([a-zA-Z@]+)", s):
+            if name in macros and name not in need:
+                need.add(name)
+                todo.append(macros[name][1])
+    return need
