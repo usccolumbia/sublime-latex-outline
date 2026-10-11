@@ -1,0 +1,10 @@
+[
+    { "keys": ["super+alt+o"], "command": "latex_outline_toggle" },
+    { "keys": ["enter"], "command": "latex_outline_goto", "context": [ { "key": "setting.latex_outline_view" } ] },
+    { "keys": ["space"], "command": "latex_outline_goto", "args": { "toggle": true }, "context": [ { "key": "setting.latex_outline_view" } ] },
+    { "keys": ["super+alt+f"], "command": "latex_outline_toggle_option", "args": { "option": "figures" } },
+    { "keys": ["super+alt+t"], "command": "latex_outline_toggle_option", "args": { "option": "tables" } },
+    { "keys": ["o"], "command": "latex_outline_open_image", "context": [ { "key": "setting.latex_outline_view" } ] },
+    { "keys": ["shift+enter"], "command": "latex_outline_open_image", "context": [ { "key": "setting.latex_outline_view" } ] },
+    { "keys": ["super+alt+p"], "command": "latex_outline_open_figure" }
+]

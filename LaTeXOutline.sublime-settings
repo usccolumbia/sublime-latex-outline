@@ -1,0 +1,36 @@
+{
+    // fraction of the window width taken by the outline panel
+    "width": 0.22,
+    // list figures ("Fig. 1: caption") and tables ("Table 1: caption") under their section, numbered in document order
+    // (switch them at run time with "LaTeX Outline: Show/Hide Figures / Tables / TODO Markers")
+    "show_figures": true,
+    "show_tables": true,
+    // list \TODO{...} markers
+    "show_todos": false,
+    // totals at the bottom of the outline and in the status bar: words (main text: no math, floats, captions, bibliography),
+    // sections, figures and tables. "stats_exclude_abstract" leaves the abstract out of the word count.
+    "show_stats": true,
+    "stats_in_status_bar": true,
+    "stats_exclude_abstract": false,
+    // hover over a figure or table row to preview it: image thumbnail (PDF/EPS via macOS `sips`) or the table text
+    "hover_preview": true,
+    "preview_max_images": 3,
+    "preview_max_height": 520,
+    // program used to open the full image ("" = system default: open / xdg-open / startfile)
+    "image_viewer": "",
+    // background and text color of the figure and table rows (light milk brown); "" turns the colouring off
+    "float_background": "#E9DCC9",
+    "float_foreground": "#4A3728",
+    // background of a figure/table row when it is the entry for the section you are editing (the theme's blue would hide the text)
+    "float_current_background": "#C9AE86",
+    // follow \input, \include and \subfile into other files
+    "follow_inputs": false,
+    "refresh_delay_ms": 400,
+    // fold markers, 2 characters each: expanded / collapsed. Chevrons like Overleaf's; if one does not show in your font try
+    // "- " and "+ " (plain ASCII) or "▾ " and "▸ ".
+    "expanded_marker": "⌄ ",
+    "collapsed_marker": "› ",
+    "font_size": 11,
+    // append errors and render notes to this file (empty = off)
+    "debug_log": ""
+}

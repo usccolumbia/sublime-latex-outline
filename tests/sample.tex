@@ -1,0 +1,25 @@
+\documentclass{article}
+\graphicspath{{figures/}}
+\begin{document}
+\begin{abstract}A short abstract with a few words.\end{abstract}
+\section{Introduction}\label{sec:intro}
+Crystal structures are \emph{periodic}; see \cite{ref1} and Fig.~\ref{fig:a}. The energy is $E = mc^2$.
+\subsection{Background}
+\paragraph{First topic.} Some text about the first topic.
+\section{Methods}
+\subsection{Models}
+\begin{table}\centering
+\caption{Match rates of the methods. \label{tab:rates}}
+\begin{tabular}{@{}lrr@{}}\toprule
+\textbf{Method} & \makecell{Top-1\\(\%)} & Top-5 \\ \midrule
+Alpha & 62.0 & 80.1 \\ Beta & 48.5 & 70.3 \\ \multicolumn{2}{c}{Mean} & 75.2 \\ \bottomrule
+\end{tabular}\end{table}
+\begin{figure}\centering\includegraphics[width=\linewidth]{plot}
+\caption{A figure with a caption.}\label{fig:a}\end{figure}
+\section{Results}
+% \section{A commented-out section}
+\subsection{Main result}
+\TODO{add the final numbers}
+\section{Discussion}
+Final words.
+\end{document}

@@ -1,0 +1,31 @@
+[
+    {
+        "caption": "LaTeX Outline: Toggle",
+        "command": "latex_outline_toggle"
+    },
+    {
+        "caption": "LaTeX Outline: Show/Hide Figures",
+        "command": "latex_outline_toggle_option",
+        "args": {
+            "option": "figures"
+        }
+    },
+    {
+        "caption": "LaTeX Outline: Show/Hide Tables",
+        "command": "latex_outline_toggle_option",
+        "args": {
+            "option": "tables"
+        }
+    },
+    {
+        "caption": "LaTeX Outline: Show/Hide TODO Markers",
+        "command": "latex_outline_toggle_option",
+        "args": {
+            "option": "todos"
+        }
+    },
+    {
+        "caption": "LaTeX Outline: Open Figure Image",
+        "command": "latex_outline_open_figure"
+    }
+]
