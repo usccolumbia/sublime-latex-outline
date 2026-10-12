@@ -225,7 +225,10 @@ def highlight(window, src):
         EQ_CURRENT_SCOPE if kind == "equation" and settings().get("equation_background", "#DCE4F0") else CURRENT_SCOPE
     ov.add_regions("current", [region], scope, flags=sublime.DRAW_NO_OUTLINE)
     log("HIGHLIGHT cursor_row=%d -> outline_row=%d %r" % (row, idx, st["rows"][idx].text))
+    # scroll vertically to keep the current row visible, but never move the user's horizontal position
+    x = ov.viewport_position()[0]
     ov.show(region, False)
+    ov.set_viewport_position((x, ov.viewport_position()[1]), False)
 
 
 THUMB_DIR = None
