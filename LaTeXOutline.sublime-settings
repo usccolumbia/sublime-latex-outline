@@ -30,6 +30,8 @@
     "equation_current_background": "#B8C7E0",
     // program used to open the full image ("" = system default: open / xdg-open / startfile)
     "image_viewer": "",
+    // background of the entry for the section you are editing: translucent light yellow (an rgba value keeps the title readable)
+    "current_background": "rgba(255, 224, 102, 0.45)",
     // background and text color of the figure and table rows (light milk brown); "" turns the colouring off
     "float_background": "#E9DCC9",
     "float_foreground": "#4A3728",

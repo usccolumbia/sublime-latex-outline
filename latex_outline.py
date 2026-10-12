@@ -107,6 +107,7 @@ def compute_rows(window, src):
 
 FLOAT_SCOPE = "meta.latex-outline.float"
 FLOAT_CURRENT_SCOPE = "meta.latex-outline.float.current"
+CURRENT_SCOPE = "meta.latex-outline.current"
 EQ_SCOPE = "meta.latex-outline.equation"
 EQ_CURRENT_SCOPE = "meta.latex-outline.equation.current"
 SCHEME_FILE = "LaTeXOutline-floats.sublime-color-scheme"
@@ -116,8 +117,6 @@ def ensure_scheme(ov, src):
     """Give the outline view a color scheme that extends the source view's scheme with a background for figure/table rows."""
     s = settings()
     bg = str(s.get("float_background", "#E9DCC9"))
-    if not bg:
-        return False
     base = src.settings().get("color_scheme") or ov.settings().get("color_scheme")
     if base and base.startswith("Packages/User/" + SCHEME_FILE.replace(".sublime-color-scheme", "")):
         base = None
@@ -125,10 +124,12 @@ def ensure_scheme(ov, src):
         found = sublime.find_resources(os.path.basename(base))
         base = found[0] if found else None
     fg = str(s.get("float_foreground", "#4A3728"))
-    rules = [{"scope": FLOAT_SCOPE, "background": bg, "foreground": fg},
-             {"scope": FLOAT_CURRENT_SCOPE, "background": str(s.get("float_current_background", "#C9AE86")), "foreground": "#2E1F12"},
-             {"scope": EQ_SCOPE, "background": str(s.get("equation_background", "#DCE4F0")), "foreground": str(s.get("equation_foreground", "#2B3A55"))},
-             {"scope": EQ_CURRENT_SCOPE, "background": str(s.get("equation_current_background", "#B8C7E0")), "foreground": "#16213A"}]
+    rules = [{"scope": CURRENT_SCOPE, "background": str(s.get("current_background", "rgba(255, 224, 102, 0.45)"))}]   # translucent light yellow: the title stays readable
+    if bg:
+        rules += [{"scope": FLOAT_SCOPE, "background": bg, "foreground": fg},
+                  {"scope": FLOAT_CURRENT_SCOPE, "background": str(s.get("float_current_background", "#C9AE86")), "foreground": "#2E1F12"}]
+    rules += [{"scope": EQ_SCOPE, "background": str(s.get("equation_background", "#DCE4F0")), "foreground": str(s.get("equation_foreground", "#2B3A55"))},
+              {"scope": EQ_CURRENT_SCOPE, "background": str(s.get("equation_current_background", "#B8C7E0")), "foreground": "#16213A"}]
     body = {"extends": base, "rules": rules} if base else {"rules": rules}
     path = os.path.join(sublime.packages_path(), "User", SCHEME_FILE)
     text = json.dumps(body, indent=2)
@@ -221,7 +222,7 @@ def highlight(window, src):
     region = ov.line(ov.text_point(idx, 0))
     kind = st["rows"][idx].entry.kind
     scope = FLOAT_CURRENT_SCOPE if kind in ("figure", "table") and settings().get("float_background", "#E9DCC9") else \
-        EQ_CURRENT_SCOPE if kind == "equation" and settings().get("equation_background", "#DCE4F0") else "region.bluish"
+        EQ_CURRENT_SCOPE if kind == "equation" and settings().get("equation_background", "#DCE4F0") else CURRENT_SCOPE
     ov.add_regions("current", [region], scope, flags=sublime.DRAW_NO_OUTLINE)
     log("HIGHLIGHT cursor_row=%d -> outline_row=%d %r" % (row, idx, st["rows"][idx].text))
     ov.show(region, False)
